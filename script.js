@@ -429,7 +429,7 @@ const App = {
     const aporteInput = document.getElementById("aporte");
     const retInput = document.getElementById("retencion");
 
-    capInput.value = "50000000";
+    capInput.value = "1000000";
     tasaInput.value = "11";
     aporteInput.value = "1000000";
     retInput.value = "7";
