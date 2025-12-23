@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Simulador Pibank Pro | Análisis Financiero</title>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.28/jspdf.plugin.autotable.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <link
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="styles.css" />
+
+    <script src="script.js" defer></script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header-section">
+        <h1 class="header-title">
+          <i class="fas fa-chart-line"></i> Simulador Financiero Pro
+        </h1>
+        <button id="btnHelp" class="btn btn-outline">
+          <i class="fas fa-book"></i> Documentación & Ayuda
+        </button>
+      </div>
+
+      <div class="card">
+        <div class="section-title">Parámetros de Inversión</div>
+
+        <div class="input-grid">
+          <div class="form-group">
+            <label class="form-label" for="capital">Inversión Inicial</label>
+            <input
+              type="text"
+              id="capital"
+              class="form-control"
+              placeholder="$ 0"
+              data-type="currency"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="tasa">
+              Tasa E.A.
+              <i
+                class="fas fa-info-circle info-icon"
+                title="Tasa Efectiva Anual ofrecida por el banco (Ej: Pibank 11%)"
+              ></i>
+            </label>
+            <input
+              type="text"
+              id="tasa"
+              class="form-control"
+              placeholder="0%"
+              data-type="percentage"
+            />
+          </div>
+          <div class="form-group">
+            <label class="form-label" for="retencion">
+              Retención (%)
+              <i
+                class="fas fa-info-circle info-icon"
+                title="Retención en la Fuente sobre rendimientos. (Estándar 7%, CDTs 4%)"
+              ></i>
+            </label>
+            <input
+              type="text"
+              id="retencion"
+              class="form-control"
+              placeholder="7%"
+              data-type="percentage"
+            />
+          </div>
+        </div>
+
+        <div class="options-container">
+          <div>
+            <div class="switch-row">
+              <label
+                class="form-label"
+                style="margin: 0; cursor: pointer"
+                for="checkAporte"
+              >
+                <i class="fas fa-piggy-bank"></i> Realizar aportes mensuales
+                recurrentes
+              </label>
+              <label class="switch">
+                <input type="checkbox" id="checkAporte" />
+                <span class="slider"></span>
+              </label>
+            </div>
+            <div id="aporteInputContainer">
+              <input
+                type="text"
+                id="aporte"
+                class="form-control"
+                placeholder="$ Monto mensual"
+                data-type="currency"
+              />
+            </div>
+          </div>
+
+          <div class="switch-row">
+            <label
+              class="form-label"
+              style="margin: 0; cursor: pointer"
+              for="checkGMF"
+            >
+              <i class="fas fa-hand-holding-usd"></i> Calcular GMF (4x1000) al
+              retirar
+              <i
+                class="fas fa-info-circle info-icon"
+                title="El 4x1000 aplica al retirar el dinero, a menos que la cuenta esté marcada como exenta (única cuenta, hasta ~350 UVT/mes)."
+              ></i>
+            </label>
+            <label class="switch">
+              <input type="checkbox" id="checkGMF" />
+              <span class="slider"></span>
+            </label>
+          </div>
+        </div>
+
+        <button id="btnCalculate" class="btn btn-primary">
+          <i class="fas fa-calculator"></i> Generar Proyección
+        </button>
+      </div>
+
+      <div class="card" id="resultsPanel" style="display: none">
+        <div class="section-title">Resumen Financiero (12 Meses)</div>
+
+        <div class="stats-grid">
+          <div class="stat-card highlight">
+            <div class="stat-label">Saldo Final Acumulado</div>
+            <div class="stat-value" id="resSaldo"></div>
+            <div class="stat-subtext">Capital + Intereses Netos</div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-label">Rendimiento Neto</div>
+            <div class="stat-value" id="resGanancia"></div>
+            <div class="stat-subtext">Intereses tras Retefuente</div>
+          </div>
+          <div class="stat-card cost">
+            <div class="stat-label">Costos Fiscales</div>
+            <div class="stat-value" id="resImpuesto"></div>
+            <div class="stat-subtext" id="taxLabel">Retefuente</div>
+          </div>
+          <div class="stat-card" style="border-color: var(--text-main)">
+            <div class="stat-label">Neto a Retirar (Liq.)</div>
+            <div class="stat-value" id="resNetoRetiro"></div>
+            <div class="stat-subtext" id="gmfLabel">
+              Incluye descuento 4x1000 si aplica
+            </div>
+          </div>
+        </div>
+
+        <div style="height: 350px; position: relative">
+          <canvas id="growthChart"></canvas>
+        </div>
+
+        <div class="btn-group">
+          <button id="btnExportPdf" class="btn btn-pdf">
+            <i class="fas fa-file-pdf"></i> Exportar Reporte PDF
+          </button>
+          <button id="btnExportXls" class="btn btn-xls">
+            <i class="fas fa-file-excel"></i> Exportar Excel
+          </button>
+        </div>
+
+        <div class="section-title" style="margin-top: 40px">
+          Desglose Mensual
+        </div>
+        <div class="table-container">
+          <table id="dataTable">
+            <thead>
+              <tr>
+                <th style="text-align: center">Mes</th>
+                <th>Saldo Inicial</th>
+                <th>Aporte</th>
+                <th>Int. Bruto</th>
+                <th>Retención</th>
+                <th>Int. Neto</th>
+                <th>Saldo Final</th>
+              </tr>
+            </thead>
+            <tbody id="tableBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="footer">
+        Desarrollado con arquitectura MVC - Datos basados en normativa
+        Colombiana 2025
+      </div>
+    </div>
+
+    <div id="helpModal" class="modal">
+      <div class="modal-content">
+        <span class="close-modal" id="closeHelpModal">&times;</span>
+        <h2 style="color: var(--primary); margin-top: 0">
+          Documentación Técnica
+        </h2>
+
+        <div class="doc-section">
+          <h3>1. Glosario de Siglas</h3>
+          <div class="glossary-item">
+            <div class="glossary-term">
+              GMF (Gravamen a los Movimientos Financieros)
+            </div>
+            <p>
+              Conocido popularmente como <strong>4x1000</strong>. Es un impuesto
+              indirecto que se aplica a las transacciones financieras (retiros,
+              transferencias) mediante las cuales se disponga de recursos
+              depositados en cuentas corrientes o de ahorro.
+            </p>
+          </div>
+          <div class="glossary-item">
+            <div class="glossary-term">Retefuente (Retención en la Fuente)</div>
+            <p>
+              No es un impuesto en sí, sino un mecanismo de recaudo anticipado
+              del impuesto de renta. En productos de ahorro, el banco retiene un
+              porcentaje de los rendimientos generados antes de abonarlos a tu
+              cuenta.
+            </p>
+          </div>
+        </div>
+
+        <div class="doc-section">
+          <h3>2. Lógica Financiera</h3>
+          <p>
+            Se utiliza interés compuesto con liquidación mensual. La Tasa
+            Efectiva Anual (E.A.) se convierte a Nominal Mensual para calcular
+            los rendimientos periódicos.
+          </p>
+        </div>
+
+        <div class="doc-section">
+          <h3>3. Impuestos Aplicados (Colombia)</h3>
+          <p>
+            <strong>Retención en la Fuente:</strong> Aplica sobre los
+            rendimientos. El valor estándar para cuentas de ahorro es
+            <strong>7%</strong>. Para CDTs puede ser del 4%. Algunos usuarios
+            pueden experimentar tasas diferentes según su calidad de
+            contribuyentes (ej. 10% o 11% en otros contextos de inversión), por
+            lo cual este campo es editable en el simulador.
+          </p>
+          <p>
+            <strong>GMF (4x1000):</strong> Si marcas la opción, se calculará
+            sobre el retiro total. Si tu cuenta está marcada como exenta (ley
+            permite una sola cuenta exenta por persona hasta 350 UVT mensuales),
+            este valor sería $0.
+          </p>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
