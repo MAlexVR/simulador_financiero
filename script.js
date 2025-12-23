@@ -15,7 +15,8 @@ class FinancialCalculator {
     aporteMensual,
     aplicarGMF,
     retencionRate,
-    months
+    months,
+    productType
   ) {
     this.capital = capital;
     this.tasaEA = tasaEA;
@@ -23,13 +24,14 @@ class FinancialCalculator {
     this.aplicarGMF = aplicarGMF;
     this.retencionRate = retencionRate;
     this.months = months;
+    this.productType = productType; // 'cdt' o 'ahorros'
     this.tasaMensual = Math.pow(1 + this.tasaEA, 1 / 12) - 1;
   }
 
   calculateProjection() {
     let saldo = this.capital;
+    let acumuladoInteresBruto = 0;
     let acumuladoRetefuente = 0;
-    let acumuladoInteresNeto = 0;
     let projection = [];
 
     // Estado inicial (Mes 0)
@@ -43,27 +45,69 @@ class FinancialCalculator {
       final: this.capital,
     });
 
-    // Proyección dinámica según duración
+    // Proyección dinámica
     for (let i = 1; i <= this.months; i++) {
       const saldoInicial = saldo;
       const interesBruto = saldo * this.tasaMensual;
-      const retencion = interesBruto * this.retencionRate;
-      const interesNeto = interesBruto - retencion;
 
-      acumuladoRetefuente += retencion;
-      acumuladoInteresNeto += interesNeto;
+      let retencionMes = 0;
+      let interesNeto = 0;
 
-      saldo += interesNeto + this.aporteMensual;
+      if (this.productType === "cdt") {
+        // LÓGICA CDT: El impuesto se paga al final (Vencimiento).
+        // El dinero crece "bruto" mes a mes.
+
+        acumuladoInteresBruto += interesBruto;
+
+        // Si es el último mes, calculamos la retención sobre TODO el acumulado
+        if (i === this.months) {
+          retencionMes = acumuladoInteresBruto * this.retencionRate;
+        } else {
+          retencionMes = 0; // Meses intermedios no pagan retención aún
+        }
+
+        // El saldo crece con el interés bruto (compuesto) hasta el final
+        // Solo al final restamos el golpe del impuesto
+        if (i === this.months) {
+          interesNeto = interesBruto - retencionMes; // Ajuste visual fila final
+          saldo += interesBruto - retencionMes; // Saldo final real neto
+        } else {
+          interesNeto = interesBruto;
+          saldo += interesBruto;
+        }
+      } else {
+        // LÓGICA AHORROS: Retención mensual.
+        // El dinero crece "neto" mes a mes.
+        retencionMes = interesBruto * this.retencionRate;
+        interesNeto = interesBruto - retencionMes;
+        saldo += interesNeto + this.aporteMensual;
+      }
+
+      acumuladoRetefuente += retencionMes;
 
       projection.push({
         mes: i,
         inicial: saldoInicial,
         aporte: this.aporteMensual,
         interesBruto: interesBruto,
-        impuesto: retencion,
+        impuesto: retencionMes,
         interesNeto: interesNeto,
         final: saldo,
       });
+    }
+
+    // Resumen final
+    // Para CDT, la ganancia neta es el acumulado bruto menos el impuesto total final
+    // Para Ahorros, es la suma de los netos mensuales (ya calculado en el bucle)
+    let totalGananciaNet = 0;
+    if (this.productType === "cdt") {
+      totalGananciaNet = acumuladoInteresBruto - acumuladoRetefuente;
+    } else {
+      // En ahorros recalculamos sumando los netos históricos del array para precisión
+      totalGananciaNet = projection.reduce(
+        (acc, row) => acc + row.interesNeto,
+        0
+      );
     }
 
     const costoGMF = this.aplicarGMF ? saldo * TAX_CONFIG.GMF_RATE : 0;
@@ -73,7 +117,7 @@ class FinancialCalculator {
       details: projection,
       summary: {
         saldoFinal: saldo,
-        totalGananciaNet: acumuladoInteresNeto,
+        totalGananciaNet: totalGananciaNet,
         totalRetefuente: acumuladoRetefuente,
         costoGMF: costoGMF,
         netoRetiro: netoRetiro,
@@ -122,21 +166,17 @@ const UI = {
     input.value = input.value.replace("%", "");
   },
 
-  // --- CORRECCIÓN IMPORTANTE: Parsers Separados ---
-
-  // Para Moneda: Elimina puntos de mil (1.000.000 -> 1000000)
   parseCurrencyValue(str) {
     if (!str) return 0;
     let clean = str.replace(/\$/g, "").replace(/\./g, "").trim();
-    clean = clean.replace(",", "."); // Por si alguien usa coma decimal en dinero
+    clean = clean.replace(",", ".");
     return parseFloat(clean) || 0;
   },
 
-  // Para Porcentajes: NO elimina puntos, solo %, y normaliza coma a punto (10.5 -> 10.5)
   parsePercentageValue(str) {
     if (!str) return 0;
     let clean = str.replace(/%/g, "").trim();
-    clean = clean.replace(",", "."); // Convierte coma decimal a punto (10,5 -> 10.5)
+    clean = clean.replace(",", ".");
     return parseFloat(clean) || 0;
   },
 
@@ -164,35 +204,29 @@ const UI = {
     container.style.display = isChecked ? "block" : "none";
   },
 
-  // Lógica para cambiar UI y Valores según producto
   updateProductUI(type) {
     const plazoGroup = document.getElementById("groupPlazo");
     const aportesContainer = document.getElementById("containerAportes");
     const avisoCDT = document.getElementById("avisoCDT");
 
-    // Referencias a inputs
     const retInput = document.getElementById("retencion");
     const tasaInput = document.getElementById("tasa");
 
     if (type === "cdt") {
-      // Modo CDT
       plazoGroup.style.display = "block";
       aportesContainer.style.display = "none";
       avisoCDT.style.display = "block";
 
-      // Valores automáticos para CDT
       retInput.value = "4%";
-      tasaInput.value = "10.5%"; // Decimal con punto, ahora funcionará bien
+      tasaInput.value = "10.5%";
 
       this.toggleAporte(false);
       this.currentProductType = "CDT";
     } else {
-      // Modo Ahorros
       plazoGroup.style.display = "none";
       aportesContainer.style.display = "block";
       avisoCDT.style.display = "none";
 
-      // Valores automáticos para Ahorros
       retInput.value = "7%";
       tasaInput.value = "11%";
 
@@ -207,7 +241,12 @@ const UI = {
     panel.style.display = "block";
     panel.scrollIntoView({ behavior: "smooth" });
 
-    const duracionLabel = data.summary.months + " Meses";
+    // Ajuste etiqueta duración
+    let duracionLabel = data.summary.months + " Meses";
+    if (this.currentProductType === "CDT") {
+      duracionLabel = data.summary.months === 6 ? "180 Días" : "360 Días";
+    }
+
     document.getElementById(
       "resumenTitleSuffix"
     ).innerText = `| ${this.currentProductType} - ${duracionLabel}`;
@@ -242,6 +281,10 @@ const UI = {
 
     data.details.slice(1).forEach((row) => {
       const tr = document.createElement("tr");
+      // Si es CDT y el impuesto es 0 (meses intermedios), mostrar guión para limpieza visual
+      const impuestoDisplay =
+        row.impuesto > 0 ? `-${this.formatMoneyDisplay(row.impuesto)}` : "-";
+
       tr.innerHTML = `
                 <td style="text-align: center; font-weight:bold;">${
                   row.mes
@@ -253,9 +296,7 @@ const UI = {
                 <td style="color:#78909c;">${this.formatMoneyDisplay(
                   row.interesBruto
                 )}</td>
-                <td style="color:var(--danger);">-${this.formatMoneyDisplay(
-                  row.impuesto
-                )}</td>
+                <td style="color:var(--danger);">${impuestoDisplay}</td>
                 <td style="color:var(--success); font-weight:bold;">+${this.formatMoneyDisplay(
                   row.interesNeto
                 )}</td>
@@ -340,7 +381,9 @@ const Exporter = {
       (data.summary.retefuenteRate * 100).toFixed(2).replace(".00", "") + "%";
 
     const productLabel = UI.currentProductType;
-    const durationLabel = data.summary.months + " Meses";
+    let durationLabel = data.summary.months + " Meses";
+    if (UI.currentProductType === "CDT")
+      durationLabel = data.summary.months === 6 ? "180 Días" : "360 Días";
 
     doc.setFillColor(0, 77, 64);
     doc.rect(0, 0, 210, 25, "F");
@@ -489,7 +532,6 @@ const App = {
     const aporteInput = document.getElementById("aporte");
     const retInput = document.getElementById("retencion");
 
-    // Valores Iniciales por Defecto (Ahorros)
     capInput.value = "1000000";
     tasaInput.value = "11";
     aporteInput.value = "500000";
@@ -545,7 +587,6 @@ const App = {
   },
 
   calculate() {
-    // --- USAR PARSERS ESPECÍFICOS AQUÍ ---
     const capital = UI.parseCurrencyValue(
       document.getElementById("capital").value
     );
@@ -553,7 +594,7 @@ const App = {
     const tasaRaw = UI.parsePercentageValue(
       document.getElementById("tasa").value
     );
-    const tasa = tasaRaw / 100; // 10.5 -> 0.105
+    const tasa = tasaRaw / 100;
 
     const retencionRaw = UI.parsePercentageValue(
       document.getElementById("retencion").value
@@ -584,7 +625,8 @@ const App = {
       aporte,
       aplicarGMF,
       retencionRate,
-      months
+      months,
+      productType
     );
     const results = calculator.calculateProjection();
 

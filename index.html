@@ -59,8 +59,8 @@
           <div class="form-group" id="groupPlazo" style="display: none">
             <label class="form-label" for="plazoCdt">Plazo de Inversión</label>
             <select id="plazoCdt" class="form-control">
-              <option value="6">6 Meses</option>
-              <option value="12" selected>12 Meses</option>
+              <option value="6">180 Días (6 Meses)</option>
+              <option value="12" selected>360 Días (1 Año)</option>
             </select>
           </div>
         </div>
@@ -142,7 +142,8 @@
             style="display: none; color: var(--text-muted); font-size: 0.9rem"
           >
             <i class="fas fa-lock"></i> En los CDTs tradicionales no se permiten
-            aportes adicionales durante la vigencia del título.
+            aportes adicionales durante la vigencia del título. Pago al
+            vencimiento.
           </div>
 
           <div class="switch-row" style="margin-top: 15px">
@@ -266,9 +267,10 @@
           <div class="glossary-item">
             <div class="glossary-term">CDT (Certificado de Depósito)</div>
             <p>
-              Inversión a plazo fijo (ej. 6 o 12 meses). Generalmente no permite
-              retirar el dinero ni hacer abonos extra hasta el vencimiento. La
-              tasa de retención suele ser menor (4%).
+              Inversión a plazo fijo (ej. 180 o 360 días). Generalmente no
+              permite retirar el dinero ni hacer abonos extra hasta el
+              vencimiento. La tasa de retención suele ser menor (4%) y se aplica
+              al final del periodo.
             </p>
           </div>
         </div>
@@ -276,9 +278,9 @@
         <div class="doc-section">
           <h3>2. Lógica Financiera</h3>
           <p>
-            Se utiliza interés compuesto con liquidación mensual. La Tasa
-            Efectiva Anual (E.A.) se convierte a Nominal Mensual para calcular
-            los rendimientos periódicos.
+            Se utiliza interés compuesto. Para CDT, la retención se liquida al
+            vencimiento sobre el total de rendimientos. Para Ahorros, se liquida
+            mensualmente.
           </p>
         </div>
 
