@@ -5,7 +5,7 @@
 
 Una aplicación web moderna y responsiva diseñada para simular rendimientos de cuentas de ahorros de alto rendimiento (como Pibank, Nu, Lulo) y CDTs en Colombia. Permite realizar proyecciones financieras detalladas considerando impuestos locales como la Retención en la Fuente y el GMF (4x1000).
 
-🔗 **[Ver Demo en Vivo](https://vercel.com/malexvrs-projects/simulador-financiero)** _(Reemplaza este enlace con tu URL de Vercel una vez desplegado)_
+🔗 **[Ver Demo en Vivo](https://simulador-financiero-smoky.vercel.app/)**
 
 ## 🚀 Características Principales
 
