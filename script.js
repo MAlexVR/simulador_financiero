@@ -43,7 +43,7 @@ class FinancialCalculator {
       final: this.capital,
     });
 
-    // Proyección dinámica según duración (6 o 12 meses)
+    // Proyección dinámica según duración
     for (let i = 1; i <= this.months; i++) {
       const saldoInicial = saldo;
       const interesBruto = saldo * this.tasaMensual;
@@ -122,14 +122,21 @@ const UI = {
     input.value = input.value.replace("%", "");
   },
 
-  parseValue(str) {
+  // --- CORRECCIÓN IMPORTANTE: Parsers Separados ---
+
+  // Para Moneda: Elimina puntos de mil (1.000.000 -> 1000000)
+  parseCurrencyValue(str) {
     if (!str) return 0;
-    let clean = str
-      .replace(/\$/g, "")
-      .replace(/%/g, "")
-      .replace(/\./g, "")
-      .trim();
-    clean = clean.replace(",", ".");
+    let clean = str.replace(/\$/g, "").replace(/\./g, "").trim();
+    clean = clean.replace(",", "."); // Por si alguien usa coma decimal en dinero
+    return parseFloat(clean) || 0;
+  },
+
+  // Para Porcentajes: NO elimina puntos, solo %, y normaliza coma a punto (10.5 -> 10.5)
+  parsePercentageValue(str) {
+    if (!str) return 0;
+    let clean = str.replace(/%/g, "").trim();
+    clean = clean.replace(",", "."); // Convierte coma decimal a punto (10,5 -> 10.5)
     return parseFloat(clean) || 0;
   },
 
@@ -157,13 +164,15 @@ const UI = {
     container.style.display = isChecked ? "block" : "none";
   },
 
-  // Lógica para cambiar UI según producto (Ahorros vs CDT)
+  // Lógica para cambiar UI y Valores según producto
   updateProductUI(type) {
     const plazoGroup = document.getElementById("groupPlazo");
     const aportesContainer = document.getElementById("containerAportes");
     const avisoCDT = document.getElementById("avisoCDT");
+
+    // Referencias a inputs
     const retInput = document.getElementById("retencion");
-    const tasaInput = document.getElementById("tasa"); // Referencia al input de tasa
+    const tasaInput = document.getElementById("tasa");
 
     if (type === "cdt") {
       // Modo CDT
@@ -171,9 +180,9 @@ const UI = {
       aportesContainer.style.display = "none";
       avisoCDT.style.display = "block";
 
-      // Valores sugeridos para CDT
+      // Valores automáticos para CDT
       retInput.value = "4%";
-      tasaInput.value = "10.5%"; // NUEVO: Tasa automática CDT
+      tasaInput.value = "10.5%"; // Decimal con punto, ahora funcionará bien
 
       this.toggleAporte(false);
       this.currentProductType = "CDT";
@@ -183,9 +192,9 @@ const UI = {
       aportesContainer.style.display = "block";
       avisoCDT.style.display = "none";
 
-      // Valores sugeridos para Ahorros
+      // Valores automáticos para Ahorros
       retInput.value = "7%";
-      tasaInput.value = "11%"; // NUEVO: Tasa automática Ahorros
+      tasaInput.value = "11%";
 
       this.currentProductType = "Cuenta de Ahorros";
     }
@@ -214,7 +223,9 @@ const UI = {
     document.getElementById("resImpuesto").innerText =
       this.formatMoneyDisplay(totalTax);
 
-    const reteRatePercent = (data.summary.retefuenteRate * 100).toFixed(0);
+    const reteRatePercent = (data.summary.retefuenteRate * 100)
+      .toFixed(2)
+      .replace(".00", "");
     let taxLabel = `Retefuente (${reteRatePercent}%)`;
     if (data.summary.costoGMF > 0)
       taxLabel += ` + GMF (${this.formatMoneyDisplay(data.summary.costoGMF)})`;
@@ -325,7 +336,8 @@ const Exporter = {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
     const data = UI.currentData;
-    const retePercent = (data.summary.retefuenteRate * 100).toFixed(0) + "%";
+    const retePercent =
+      (data.summary.retefuenteRate * 100).toFixed(2).replace(".00", "") + "%";
 
     const productLabel = UI.currentProductType;
     const durationLabel = data.summary.months + " Meses";
@@ -430,7 +442,9 @@ const Exporter = {
     const wb = XLSX.utils.book_new();
     const data = UI.currentData.details.slice(1);
     const retePercent =
-      (UI.currentData.summary.retefuenteRate * 100).toFixed(0) + "%";
+      (UI.currentData.summary.retefuenteRate * 100)
+        .toFixed(2)
+        .replace(".00", "") + "%";
 
     const dataExcel = data.map((d) => ({
       Mes: d.mes,
@@ -475,7 +489,7 @@ const App = {
     const aporteInput = document.getElementById("aporte");
     const retInput = document.getElementById("retencion");
 
-    // CAMBIO: Valor inicial 1'000.000 y tasa base de Ahorros
+    // Valores Iniciales por Defecto (Ahorros)
     capInput.value = "1000000";
     tasaInput.value = "11";
     aporteInput.value = "500000";
@@ -531,11 +545,17 @@ const App = {
   },
 
   calculate() {
-    const capital = UI.parseValue(document.getElementById("capital").value);
-    const tasaRaw = UI.parseValue(document.getElementById("tasa").value);
-    const tasa = tasaRaw / 100;
+    // --- USAR PARSERS ESPECÍFICOS AQUÍ ---
+    const capital = UI.parseCurrencyValue(
+      document.getElementById("capital").value
+    );
 
-    const retencionRaw = UI.parseValue(
+    const tasaRaw = UI.parsePercentageValue(
+      document.getElementById("tasa").value
+    );
+    const tasa = tasaRaw / 100; // 10.5 -> 0.105
+
+    const retencionRaw = UI.parsePercentageValue(
       document.getElementById("retencion").value
     );
     const retencionRate = retencionRaw / 100;
@@ -554,7 +574,7 @@ const App = {
       months = 12;
       const hayAporte = document.getElementById("checkAporte").checked;
       aporte = hayAporte
-        ? UI.parseValue(document.getElementById("aporte").value)
+        ? UI.parseCurrencyValue(document.getElementById("aporte").value)
         : 0;
     }
 
