@@ -54,30 +54,26 @@ class FinancialCalculator {
       let interesNeto = 0;
 
       if (this.productType === "cdt") {
-        // LÓGICA CDT: El impuesto se paga al final (Vencimiento).
-        // El dinero crece "bruto" mes a mes.
-
+        // LÓGICA CDT: Retención al vencimiento.
         acumuladoInteresBruto += interesBruto;
 
         // Si es el último mes, calculamos la retención sobre TODO el acumulado
         if (i === this.months) {
           retencionMes = acumuladoInteresBruto * this.retencionRate;
         } else {
-          retencionMes = 0; // Meses intermedios no pagan retención aún
+          retencionMes = 0;
         }
 
-        // El saldo crece con el interés bruto (compuesto) hasta el final
-        // Solo al final restamos el golpe del impuesto
+        // Saldo crece bruto hasta el final, donde se descuenta el impuesto
         if (i === this.months) {
-          interesNeto = interesBruto - retencionMes; // Ajuste visual fila final
-          saldo += interesBruto - retencionMes; // Saldo final real neto
+          interesNeto = interesBruto - retencionMes;
+          saldo += interesBruto - retencionMes;
         } else {
           interesNeto = interesBruto;
           saldo += interesBruto;
         }
       } else {
         // LÓGICA AHORROS: Retención mensual.
-        // El dinero crece "neto" mes a mes.
         retencionMes = interesBruto * this.retencionRate;
         interesNeto = interesBruto - retencionMes;
         saldo += interesNeto + this.aporteMensual;
@@ -97,13 +93,10 @@ class FinancialCalculator {
     }
 
     // Resumen final
-    // Para CDT, la ganancia neta es el acumulado bruto menos el impuesto total final
-    // Para Ahorros, es la suma de los netos mensuales (ya calculado en el bucle)
     let totalGananciaNet = 0;
     if (this.productType === "cdt") {
       totalGananciaNet = acumuladoInteresBruto - acumuladoRetefuente;
     } else {
-      // En ahorros recalculamos sumando los netos históricos del array para precisión
       totalGananciaNet = projection.reduce(
         (acc, row) => acc + row.interesNeto,
         0
@@ -180,11 +173,13 @@ const UI = {
     return parseFloat(clean) || 0;
   },
 
+  // --- CAMBIO AQUÍ: Formato con 1 decimal ---
   formatMoneyDisplay(amount) {
     return new Intl.NumberFormat("es-CO", {
       style: "currency",
       currency: "COP",
-      maximumFractionDigits: 0,
+      minimumFractionDigits: 1, // Fuerza mostrar 1 decimal
+      maximumFractionDigits: 1, // No muestra más de 1 decimal
     }).format(amount);
   },
 
@@ -241,7 +236,6 @@ const UI = {
     panel.style.display = "block";
     panel.scrollIntoView({ behavior: "smooth" });
 
-    // Ajuste etiqueta duración
     let duracionLabel = data.summary.months + " Meses";
     if (this.currentProductType === "CDT") {
       duracionLabel = data.summary.months === 6 ? "180 Días" : "360 Días";
@@ -281,7 +275,6 @@ const UI = {
 
     data.details.slice(1).forEach((row) => {
       const tr = document.createElement("tr");
-      // Si es CDT y el impuesto es 0 (meses intermedios), mostrar guión para limpieza visual
       const impuestoDisplay =
         row.impuesto > 0 ? `-${this.formatMoneyDisplay(row.impuesto)}` : "-";
 
