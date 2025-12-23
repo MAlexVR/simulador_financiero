@@ -7,15 +7,23 @@ const TAX_CONFIG = {
 
 /**
  * MODELO: Lógica Financiera Pura
- * Responsable únicamente de los cálculos.
+ * Ahora acepta 'months' para definir la duración de la proyección (6 o 12)
  */
 class FinancialCalculator {
-  constructor(capital, tasaEA, aporteMensual, aplicarGMF, retencionRate) {
+  constructor(
+    capital,
+    tasaEA,
+    aporteMensual,
+    aplicarGMF,
+    retencionRate,
+    months
+  ) {
     this.capital = capital;
     this.tasaEA = tasaEA;
     this.aporteMensual = aporteMensual;
     this.aplicarGMF = aplicarGMF;
     this.retencionRate = retencionRate;
+    this.months = months; // Duración en meses
     this.tasaMensual = Math.pow(1 + this.tasaEA, 1 / 12) - 1;
   }
 
@@ -36,8 +44,8 @@ class FinancialCalculator {
       final: this.capital,
     });
 
-    // Proyección a 12 meses
-    for (let i = 1; i <= 12; i++) {
+    // Proyección dinámica según duración (6 o 12 meses)
+    for (let i = 1; i <= this.months; i++) {
       const saldoInicial = saldo;
       const interesBruto = saldo * this.tasaMensual;
       const retencion = interesBruto * this.retencionRate;
@@ -71,6 +79,7 @@ class FinancialCalculator {
         costoGMF: costoGMF,
         netoRetiro: netoRetiro,
         retefuenteRate: this.retencionRate,
+        months: this.months, // Guardamos la duración para reportes
       },
     };
   }
@@ -78,15 +87,14 @@ class FinancialCalculator {
 
 /**
  * VISTA/UI: Manejo del DOM y Visualización
- * Responsable de leer inputs, formatear valores y pintar gráficos.
  */
 const UI = {
   chartInstance: null,
   currentData: null,
+  currentProductType: "Cuenta de Ahorros", // Para etiquetas de reporte
 
   // --- Helpers de Formato Input ---
 
-  // Moneda: Convierte 50000000 -> $ 50.000.000
   formatCurrency(input) {
     let val = input.value;
     if (val === "") return;
@@ -100,13 +108,11 @@ const UI = {
     }).format(cleanVal);
   },
 
-  // Quitar formato: $ 50.000.000 -> 50000000 (para editar)
   unformatCurrency(input) {
     let val = input.value;
     input.value = val.replace(/[^\d]/g, "");
   },
 
-  // Porcentaje: 11 -> 11%
   formatPercentage(input) {
     let val = input.value.replace("%", "");
     if (val === "") return;
@@ -117,7 +123,6 @@ const UI = {
     input.value = input.value.replace("%", "");
   },
 
-  // Parseo seguro para cálculos
   parseValue(str) {
     if (!str) return 0;
     let clean = str
@@ -144,11 +149,46 @@ const UI = {
     modal.style.display = action === "open" ? "block" : "none";
   },
 
-  toggleAporte() {
-    const isChecked = document.getElementById("checkAporte").checked;
-    document.getElementById("aporteInputContainer").style.display = isChecked
-      ? "block"
-      : "none";
+  toggleAporte(forceState = null) {
+    const check = document.getElementById("checkAporte");
+    if (forceState !== null) check.checked = forceState;
+
+    const isChecked = check.checked;
+    const container = document.getElementById("aporteInputContainer");
+    container.style.display = isChecked ? "block" : "none";
+  },
+
+  // Lógica para cambiar UI según producto (Ahorros vs CDT)
+  updateProductUI(type) {
+    const plazoGroup = document.getElementById("groupPlazo");
+    const aportesContainer = document.getElementById("containerAportes");
+    const avisoCDT = document.getElementById("avisoCDT");
+    const retInput = document.getElementById("retencion");
+
+    if (type === "cdt") {
+      // Modo CDT
+      plazoGroup.style.display = "block";
+      aportesContainer.style.display = "none"; // Ocultar input aportes
+      avisoCDT.style.display = "block";
+
+      // Sugerencia visual: CDTs suelen tener retención del 4%
+      retInput.value = "4%";
+
+      // Desactivar check de aportes internamente
+      this.toggleAporte(false);
+
+      this.currentProductType = "CDT";
+    } else {
+      // Modo Ahorros
+      plazoGroup.style.display = "none";
+      aportesContainer.style.display = "block";
+      avisoCDT.style.display = "none";
+
+      // Sugerencia visual: Ahorros suelen tener 7%
+      retInput.value = "7%";
+
+      this.currentProductType = "Cuenta de Ahorros";
+    }
   },
 
   renderResults(data) {
@@ -157,6 +197,12 @@ const UI = {
     const panel = document.getElementById("resultsPanel");
     panel.style.display = "block";
     panel.scrollIntoView({ behavior: "smooth" });
+
+    // Actualizar subtítulo con el tipo de producto y plazo
+    const duracionLabel = data.summary.months + " Meses";
+    document.getElementById(
+      "resumenTitleSuffix"
+    ).innerText = `| ${this.currentProductType} - ${duracionLabel}`;
 
     document.getElementById("resSaldo").innerText = this.formatMoneyDisplay(
       data.summary.saldoFinal
@@ -273,7 +319,6 @@ const UI = {
 
 /**
  * SERVICIO: Exportación
- * Maneja lógica externa de bibliotecas de terceros.
  */
 const Exporter = {
   toPDF() {
@@ -283,18 +328,22 @@ const Exporter = {
     const data = UI.currentData;
     const retePercent = (data.summary.retefuenteRate * 100).toFixed(0) + "%";
 
+    // Información del producto seleccionado
+    const productLabel = UI.currentProductType;
+    const durationLabel = data.summary.months + " Meses";
+
     doc.setFillColor(0, 77, 64);
     doc.rect(0, 0, 210, 25, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(18);
     doc.text("Reporte de Proyección Financiera", 14, 16);
     doc.setFontSize(10);
-    doc.text("Generado por Simulador Pro", 14, 22);
+    doc.text(`Simulador Pro | ${productLabel} (${durationLabel})`, 14, 22);
 
     doc.setTextColor(40);
     doc.text(`Fecha: ${new Date().toLocaleDateString()}`, 14, 35);
     doc.text(`Tasa E.A.: ${document.getElementById("tasa").value}`, 80, 35);
-    doc.text(`Retefuente Aplicada: ${retePercent}`, 140, 35);
+    doc.text(`Retefuente: ${retePercent}`, 140, 35);
 
     doc.setFillColor(240, 242, 245);
     doc.roundedRect(14, 40, 180, 25, 3, 3, "F");
@@ -361,7 +410,7 @@ const Exporter = {
     doc.setFontSize(8);
     doc.setTextColor(100);
     doc.text(
-      `Nota: Los valores son proyecciones estimadas. La retención en la fuente (${retePercent}) aplica sobre rendimientos.`,
+      `Nota: Proyección estimada para ${productLabel} a ${durationLabel}.`,
       14,
       finalY
     );
@@ -385,6 +434,9 @@ const Exporter = {
     const retePercent =
       (UI.currentData.summary.retefuenteRate * 100).toFixed(0) + "%";
 
+    // Añadir info del producto al nombre de la hoja o primera fila sería ideal,
+    // pero SheetJS básico usa json directo. Vamos a dejarlo estándar.
+
     const dataExcel = data.map((d) => ({
       Mes: d.mes,
       "Saldo Inicial": d.inicial,
@@ -405,21 +457,21 @@ const Exporter = {
       { wch: 15 },
       { wch: 18 },
     ];
-    XLSX.utils.book_append_sheet(wb, ws, "Proyección");
+
+    // Nombre de hoja dinámico
+    let sheetName =
+      UI.currentProductType === "CDT" ? "CDT_Proyeccion" : "Ahorros_Proyeccion";
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
     XLSX.writeFile(wb, "Proyeccion_Financiera.xlsx");
   },
 };
 
 /**
  * CONTROLADOR PRINCIPAL: App
- * Orquesta la inicialización y el flujo de datos.
  */
 const App = {
   init() {
-    // 1. Establecer valores iniciales
     this.setInitialValues();
-
-    // 2. Configurar Event Listeners (Unobtrusive JS)
     this.bindEvents();
   },
 
@@ -429,9 +481,9 @@ const App = {
     const aporteInput = document.getElementById("aporte");
     const retInput = document.getElementById("retencion");
 
-    capInput.value = "1000000";
-    tasaInput.value = "11";
-    aporteInput.value = "1000000";
+    capInput.value = "10000000";
+    tasaInput.value = "10";
+    aporteInput.value = "500000";
     retInput.value = "7";
 
     UI.formatCurrency(capInput);
@@ -460,8 +512,6 @@ const App = {
     document
       .getElementById("closeHelpModal")
       .addEventListener("click", () => UI.toggleModal("close"));
-
-    // Cerrar modal al hacer click fuera
     window.addEventListener("click", (event) => {
       if (event.target == helpModal) UI.toggleModal("close");
     });
@@ -471,15 +521,18 @@ const App = {
       .getElementById("checkAporte")
       .addEventListener("change", () => UI.toggleAporte());
 
-    // Inputs con formato automático
-    // Usamos delegación o asignación directa para moneda
+    // Cambio de Tipo de Producto (NUEVO)
+    document.getElementById("tipoProducto").addEventListener("change", (e) => {
+      UI.updateProductUI(e.target.value);
+    });
+
+    // Inputs con formato
     const currencyInputs = document.querySelectorAll('[data-type="currency"]');
     currencyInputs.forEach((input) => {
       input.addEventListener("focus", (e) => UI.unformatCurrency(e.target));
       input.addEventListener("blur", (e) => UI.formatCurrency(e.target));
     });
 
-    // Inputs con formato porcentaje
     const percentInputs = document.querySelectorAll('[data-type="percentage"]');
     percentInputs.forEach((input) => {
       input.addEventListener("focus", (e) => UI.unformatPercentage(e.target));
@@ -488,6 +541,7 @@ const App = {
   },
 
   calculate() {
+    // 1. Obtener valores básicos
     const capital = UI.parseValue(document.getElementById("capital").value);
     const tasaRaw = UI.parseValue(document.getElementById("tasa").value);
     const tasa = tasaRaw / 100;
@@ -497,19 +551,35 @@ const App = {
     );
     const retencionRate = retencionRaw / 100;
 
-    const hayAporte = document.getElementById("checkAporte").checked;
-    const aporte = hayAporte
-      ? UI.parseValue(document.getElementById("aporte").value)
-      : 0;
-
     const aplicarGMF = document.getElementById("checkGMF").checked;
 
+    // 2. Determinar lógica según producto
+    const productType = document.getElementById("tipoProducto").value;
+    let months = 12; // Valor por defecto
+    let aporte = 0;
+
+    if (productType === "cdt") {
+      // Si es CDT, leemos el plazo y el aporte es 0
+      const plazoSelect = document.getElementById("plazoCdt");
+      months = parseInt(plazoSelect.value);
+      aporte = 0;
+    } else {
+      // Si es Ahorros, el plazo es 12 por defecto y permitimos aportes
+      months = 12;
+      const hayAporte = document.getElementById("checkAporte").checked;
+      aporte = hayAporte
+        ? UI.parseValue(document.getElementById("aporte").value)
+        : 0;
+    }
+
+    // 3. Calcular
     const calculator = new FinancialCalculator(
       capital,
       tasa,
       aporte,
       aplicarGMF,
-      retencionRate
+      retencionRate,
+      months
     );
     const results = calculator.calculateProjection();
 
@@ -517,7 +587,6 @@ const App = {
   },
 };
 
-// Punto de entrada único
 document.addEventListener("DOMContentLoaded", () => {
   App.init();
 });

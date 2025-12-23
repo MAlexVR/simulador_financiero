@@ -107,6 +107,21 @@ body {
   border: 1px solid rgba(0, 0, 0, 0.05);
 }
 
+/* NUEVO: Descripción de la Aplicación */
+.app-description {
+  background-color: #e0f7fa;
+  border-left: 4px solid var(--accent);
+  padding: 15px;
+  border-radius: 4px;
+  margin-bottom: 25px;
+  color: var(--text-main);
+  font-size: 0.95rem;
+}
+.app-description i {
+  color: var(--primary);
+  margin-right: 8px;
+}
+
 .section-title {
   font-size: 1.1rem;
   color: var(--primary);
@@ -143,6 +158,7 @@ body {
   font-size: 1rem;
   transition: all 0.3s ease;
   font-weight: 500;
+  background-color: #fff;
 }
 
 .form-control:focus {
@@ -158,7 +174,7 @@ body {
   font-size: 0.85rem;
 }
 
-/* Switches & Toggles (CORREGIDO) */
+/* Switches & Toggles */
 .options-container {
   background-color: #e0f2f1;
   padding: 20px;
@@ -179,7 +195,7 @@ body {
   display: inline-block;
   width: 48px;
   height: 26px;
-  flex-shrink: 0; /* Asegura que no se aplaste en móviles */
+  flex-shrink: 0;
 }
 .switch input {
   opacity: 0;
@@ -212,9 +228,6 @@ body {
 input:checked + .slider {
   background-color: var(--primary);
 }
-
-/* --- CORRECCIÓN AQUÍ --- */
-/* Se redujo de 22px a 20px para evitar desbordamiento visual en móviles */
 input:checked + .slider:before {
   transform: translateX(20px);
 }

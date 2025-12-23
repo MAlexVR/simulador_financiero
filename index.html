@@ -31,7 +31,39 @@
       </div>
 
       <div class="card">
+        <div class="app-description">
+          <p>
+            <i class="fas fa-info-circle"></i>
+            <strong>Bienvenido.</strong> Simule la rentabilidad real de sus
+            inversiones comparando <strong>Cuentas de Ahorros</strong> de alto
+            rendimiento vs. <strong>CDTs</strong>. Configure plazos, tasas e
+            impuestos (Retefuente/GMF) para proyectar sus ganancias netas.
+          </p>
+        </div>
+
         <div class="section-title">Parámetros de Inversión</div>
+
+        <div class="input-grid" style="margin-bottom: 25px">
+          <div class="form-group">
+            <label class="form-label" for="tipoProducto"
+              >Tipo de Producto</label
+            >
+            <select id="tipoProducto" class="form-control">
+              <option value="ahorros">
+                Cuenta de Ahorros (Pibank, Nu, Lulo...)
+              </option>
+              <option value="cdt">CDT (Certificado Depósito a Término)</option>
+            </select>
+          </div>
+
+          <div class="form-group" id="groupPlazo" style="display: none">
+            <label class="form-label" for="plazoCdt">Plazo de Inversión</label>
+            <select id="plazoCdt" class="form-control">
+              <option value="6">6 Meses</option>
+              <option value="12" selected>12 Meses</option>
+            </select>
+          </div>
+        </div>
 
         <div class="input-grid">
           <div class="form-group">
@@ -49,7 +81,7 @@
               Tasa E.A.
               <i
                 class="fas fa-info-circle info-icon"
-                title="Tasa Efectiva Anual ofrecida por el banco (Ej: Pibank 11%)"
+                title="Tasa Efectiva Anual ofrecida por la entidad."
               ></i>
             </label>
             <input
@@ -65,7 +97,7 @@
               Retención (%)
               <i
                 class="fas fa-info-circle info-icon"
-                title="Retención en la Fuente sobre rendimientos. (Estándar 7%, CDTs 4%)"
+                title="Retención en la Fuente sobre rendimientos (Ahorros ~7%, CDT ~4%)."
               ></i>
             </label>
             <input
@@ -79,7 +111,7 @@
         </div>
 
         <div class="options-container">
-          <div>
+          <div id="containerAportes">
             <div class="switch-row">
               <label
                 class="form-label"
@@ -105,7 +137,15 @@
             </div>
           </div>
 
-          <div class="switch-row">
+          <div
+            id="avisoCDT"
+            style="display: none; color: var(--text-muted); font-size: 0.9rem"
+          >
+            <i class="fas fa-lock"></i> En los CDTs tradicionales no se permiten
+            aportes adicionales durante la vigencia del título.
+          </div>
+
+          <div class="switch-row" style="margin-top: 15px">
             <label
               class="form-label"
               style="margin: 0; cursor: pointer"
@@ -115,7 +155,7 @@
               retirar
               <i
                 class="fas fa-info-circle info-icon"
-                title="El 4x1000 aplica al retirar el dinero, a menos que la cuenta esté marcada como exenta (única cuenta, hasta ~350 UVT/mes)."
+                title="Aplica al retirar el dinero si la cuenta no está exenta."
               ></i>
             </label>
             <label class="switch">
@@ -131,7 +171,13 @@
       </div>
 
       <div class="card" id="resultsPanel" style="display: none">
-        <div class="section-title">Resumen Financiero (12 Meses)</div>
+        <div class="section-title">
+          Resumen Financiero
+          <span
+            id="resumenTitleSuffix"
+            style="font-weight: 400; font-size: 0.9em; color: var(--text-muted)"
+          ></span>
+        </div>
 
         <div class="stats-grid">
           <div class="stat-card highlight">
@@ -206,25 +252,23 @@
         </h2>
 
         <div class="doc-section">
-          <h3>1. Glosario de Siglas</h3>
+          <h3>1. Tipos de Producto</h3>
           <div class="glossary-item">
             <div class="glossary-term">
-              GMF (Gravamen a los Movimientos Financieros)
+              Cuenta de Ahorros (Alta Rentabilidad)
             </div>
             <p>
-              Conocido popularmente como <strong>4x1000</strong>. Es un impuesto
-              indirecto que se aplica a las transacciones financieras (retiros,
-              transferencias) mediante las cuales se disponga de recursos
-              depositados en cuentas corrientes o de ahorro.
+              Productos como Pibank, Nu o Lulo. El dinero está a la vista,
+              genera rendimientos diarios y puedes hacer aportes recurrentes. La
+              proyección se muestra a 12 meses.
             </p>
           </div>
           <div class="glossary-item">
-            <div class="glossary-term">Retefuente (Retención en la Fuente)</div>
+            <div class="glossary-term">CDT (Certificado de Depósito)</div>
             <p>
-              No es un impuesto en sí, sino un mecanismo de recaudo anticipado
-              del impuesto de renta. En productos de ahorro, el banco retiene un
-              porcentaje de los rendimientos generados antes de abonarlos a tu
-              cuenta.
+              Inversión a plazo fijo (ej. 6 o 12 meses). Generalmente no permite
+              retirar el dinero ni hacer abonos extra hasta el vencimiento. La
+              tasa de retención suele ser menor (4%).
             </p>
           </div>
         </div>
@@ -239,20 +283,15 @@
         </div>
 
         <div class="doc-section">
-          <h3>3. Impuestos Aplicados (Colombia)</h3>
+          <h3>3. Impuestos Aplicados</h3>
           <p>
-            <strong>Retención en la Fuente:</strong> Aplica sobre los
-            rendimientos. El valor estándar para cuentas de ahorro es
-            <strong>7%</strong>. Para CDTs puede ser del 4%. Algunos usuarios
-            pueden experimentar tasas diferentes según su calidad de
-            contribuyentes (ej. 10% o 11% en otros contextos de inversión), por
-            lo cual este campo es editable en el simulador.
+            <strong>Retención en la Fuente:</strong> Valor estándar cuentas: 7%.
+            Valor estándar CDTs: 4%. El usuario debe ajustar este valor
+            manualmente según su producto.
           </p>
           <p>
             <strong>GMF (4x1000):</strong> Si marcas la opción, se calculará
-            sobre el retiro total. Si tu cuenta está marcada como exenta (ley
-            permite una sola cuenta exenta por persona hasta 350 UVT mensuales),
-            este valor sería $0.
+            sobre el retiro total.
           </p>
         </div>
       </div>
