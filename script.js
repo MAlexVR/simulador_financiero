@@ -7,7 +7,6 @@ const TAX_CONFIG = {
 
 /**
  * MODELO: Lógica Financiera Pura
- * Ahora acepta 'months' para definir la duración de la proyección (6 o 12)
  */
 class FinancialCalculator {
   constructor(
@@ -23,7 +22,7 @@ class FinancialCalculator {
     this.aporteMensual = aporteMensual;
     this.aplicarGMF = aplicarGMF;
     this.retencionRate = retencionRate;
-    this.months = months; // Duración en meses
+    this.months = months;
     this.tasaMensual = Math.pow(1 + this.tasaEA, 1 / 12) - 1;
   }
 
@@ -79,7 +78,7 @@ class FinancialCalculator {
         costoGMF: costoGMF,
         netoRetiro: netoRetiro,
         retefuenteRate: this.retencionRate,
-        months: this.months, // Guardamos la duración para reportes
+        months: this.months,
       },
     };
   }
@@ -91,7 +90,7 @@ class FinancialCalculator {
 const UI = {
   chartInstance: null,
   currentData: null,
-  currentProductType: "Cuenta de Ahorros", // Para etiquetas de reporte
+  currentProductType: "Cuenta de Ahorros",
 
   // --- Helpers de Formato Input ---
 
@@ -164,19 +163,19 @@ const UI = {
     const aportesContainer = document.getElementById("containerAportes");
     const avisoCDT = document.getElementById("avisoCDT");
     const retInput = document.getElementById("retencion");
+    const tasaInput = document.getElementById("tasa"); // Referencia al input de tasa
 
     if (type === "cdt") {
       // Modo CDT
       plazoGroup.style.display = "block";
-      aportesContainer.style.display = "none"; // Ocultar input aportes
+      aportesContainer.style.display = "none";
       avisoCDT.style.display = "block";
 
-      // Sugerencia visual: CDTs suelen tener retención del 4%
+      // Valores sugeridos para CDT
       retInput.value = "4%";
+      tasaInput.value = "10.5%"; // NUEVO: Tasa automática CDT
 
-      // Desactivar check de aportes internamente
       this.toggleAporte(false);
-
       this.currentProductType = "CDT";
     } else {
       // Modo Ahorros
@@ -184,8 +183,9 @@ const UI = {
       aportesContainer.style.display = "block";
       avisoCDT.style.display = "none";
 
-      // Sugerencia visual: Ahorros suelen tener 7%
+      // Valores sugeridos para Ahorros
       retInput.value = "7%";
+      tasaInput.value = "11%"; // NUEVO: Tasa automática Ahorros
 
       this.currentProductType = "Cuenta de Ahorros";
     }
@@ -198,7 +198,6 @@ const UI = {
     panel.style.display = "block";
     panel.scrollIntoView({ behavior: "smooth" });
 
-    // Actualizar subtítulo con el tipo de producto y plazo
     const duracionLabel = data.summary.months + " Meses";
     document.getElementById(
       "resumenTitleSuffix"
@@ -328,7 +327,6 @@ const Exporter = {
     const data = UI.currentData;
     const retePercent = (data.summary.retefuenteRate * 100).toFixed(0) + "%";
 
-    // Información del producto seleccionado
     const productLabel = UI.currentProductType;
     const durationLabel = data.summary.months + " Meses";
 
@@ -434,9 +432,6 @@ const Exporter = {
     const retePercent =
       (UI.currentData.summary.retefuenteRate * 100).toFixed(0) + "%";
 
-    // Añadir info del producto al nombre de la hoja o primera fila sería ideal,
-    // pero SheetJS básico usa json directo. Vamos a dejarlo estándar.
-
     const dataExcel = data.map((d) => ({
       Mes: d.mes,
       "Saldo Inicial": d.inicial,
@@ -458,7 +453,6 @@ const Exporter = {
       { wch: 18 },
     ];
 
-    // Nombre de hoja dinámico
     let sheetName =
       UI.currentProductType === "CDT" ? "CDT_Proyeccion" : "Ahorros_Proyeccion";
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
@@ -481,8 +475,9 @@ const App = {
     const aporteInput = document.getElementById("aporte");
     const retInput = document.getElementById("retencion");
 
-    capInput.value = "10000000";
-    tasaInput.value = "10";
+    // CAMBIO: Valor inicial 1'000.000 y tasa base de Ahorros
+    capInput.value = "1000000";
+    tasaInput.value = "11";
     aporteInput.value = "500000";
     retInput.value = "7";
 
@@ -493,7 +488,6 @@ const App = {
   },
 
   bindEvents() {
-    // Botones Principales
     document
       .getElementById("btnCalculate")
       .addEventListener("click", () => this.calculate());
@@ -504,7 +498,6 @@ const App = {
       .getElementById("btnExportXls")
       .addEventListener("click", () => Exporter.toExcel());
 
-    // Modal de Ayuda
     const helpModal = document.getElementById("helpModal");
     document
       .getElementById("btnHelp")
@@ -516,17 +509,14 @@ const App = {
       if (event.target == helpModal) UI.toggleModal("close");
     });
 
-    // Toggle Aporte
     document
       .getElementById("checkAporte")
       .addEventListener("change", () => UI.toggleAporte());
 
-    // Cambio de Tipo de Producto (NUEVO)
     document.getElementById("tipoProducto").addEventListener("change", (e) => {
       UI.updateProductUI(e.target.value);
     });
 
-    // Inputs con formato
     const currencyInputs = document.querySelectorAll('[data-type="currency"]');
     currencyInputs.forEach((input) => {
       input.addEventListener("focus", (e) => UI.unformatCurrency(e.target));
@@ -541,7 +531,6 @@ const App = {
   },
 
   calculate() {
-    // 1. Obtener valores básicos
     const capital = UI.parseValue(document.getElementById("capital").value);
     const tasaRaw = UI.parseValue(document.getElementById("tasa").value);
     const tasa = tasaRaw / 100;
@@ -553,18 +542,15 @@ const App = {
 
     const aplicarGMF = document.getElementById("checkGMF").checked;
 
-    // 2. Determinar lógica según producto
     const productType = document.getElementById("tipoProducto").value;
-    let months = 12; // Valor por defecto
+    let months = 12;
     let aporte = 0;
 
     if (productType === "cdt") {
-      // Si es CDT, leemos el plazo y el aporte es 0
       const plazoSelect = document.getElementById("plazoCdt");
       months = parseInt(plazoSelect.value);
       aporte = 0;
     } else {
-      // Si es Ahorros, el plazo es 12 por defecto y permitimos aportes
       months = 12;
       const hayAporte = document.getElementById("checkAporte").checked;
       aporte = hayAporte
@@ -572,7 +558,6 @@ const App = {
         : 0;
     }
 
-    // 3. Calcular
     const calculator = new FinancialCalculator(
       capital,
       tasa,
